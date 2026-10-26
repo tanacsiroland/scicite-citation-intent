@@ -218,3 +218,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# AI & Local Context
+CONTEXT.md
+.antigravity/
+.antigravityrules
+.cursorrules
+
+# Virtual Environments & Data
+.venv/
+venv/
+env/
+data/
+outputs/
+checkpoints/
+*.pt
+*.bin
