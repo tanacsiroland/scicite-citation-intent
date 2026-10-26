@@ -229,8 +229,13 @@ CONTEXT.md
 .venv/
 venv/
 env/
-data/
-outputs/
+/data/
+outputs/checkpoints/
+outputs/models/
 checkpoints/
 *.pt
 *.bin
+# SciCite raw archives and caches
+data/raw/*.tar.gz
+outputs/figures/*.pdf
+
