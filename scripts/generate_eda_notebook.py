@@ -1,4 +1,4 @@
-"""Script to generate the streamlined 01_eda_and_preprocessing.ipynb notebook with methodological split documentation."""
+"""Script to generate the complete 01_eda_and_preprocessing.ipynb notebook."""
 
 import json
 from pathlib import Path
@@ -10,12 +10,12 @@ notebook = {
             "metadata": {},
             "source": [
                 "# SciCite: Citation Intent Classification\n",
-                "## 01. Exploratory Data Analysis & Section Name Investigation\n",
+                "## 01. Exploratory Data Analysis & Preprocessing Pipeline\n",
                 "\n",
                 "**Course:** Mesterséges intelligencia alkalmazási területei (MSc)\n",
                 "**Dataset:** `allenai/scicite` (Official splits from NAACL 2019 / Hugging Face)\n",
                 "**Target Classes (3):** `background`, `method`, `result`\n",
-                "**Objective:** Inspect split integrity, justify the retention of official dataset partitions, analyze class imbalance, and quantify noise patterns in `sectionName` to guide preprocessing and the section-aware ablation study."
+                "**Objective:** Inspect split integrity, justify the retention of official partitions, analyze class imbalance, normalize the noisy `sectionName` feature, and construct comparative input representations (`text-only` vs. `section-aware`)."
             ]
         },
         {
@@ -38,15 +38,14 @@ notebook = {
                 "\n",
                 "from src.utils.seed import set_seed\n",
                 "from src.data_processing.loader import load_scicite_dataset, get_label_mappings, dataset_to_dataframes\n",
-                "from src.data_processing.eda import (\n",
-                "    compute_split_summary,\n",
-                "    compute_class_distribution,\n",
-                "    analyze_sections,\n",
-                ")\n",
+                "from src.data_processing.eda import compute_split_summary, compute_class_distribution, analyze_sections\n",
+                "from src.data_processing.preprocess import build_input_representations, normalize_section_name\n",
                 "from src.utils.visualizer import (\n",
                 "    plot_class_distribution,\n",
                 "    plot_top_sections,\n",
                 "    plot_section_label_contingency,\n",
+                "    plot_canonical_section_distribution,\n",
+                "    plot_canonical_section_contingency,\n",
                 ")\n",
                 "\n",
                 "set_seed(42)\n",
@@ -172,10 +171,62 @@ notebook = {
             "cell_type": "markdown",
             "metadata": {},
             "source": [
-                "### 6. Key Takeaways & Preprocessing Strategy\n",
-                "1. **Imbalance Confirmation:** Clear predominance of `background` (~59%), necessitating Macro-F1 as primary metric and stratified evaluation.\n",
-                "2. **Predictive Signal in Sections:** The contingency heatmap confirms strong predictive signal: citations in 'Introduction' are >85% `background`, while those in 'Methods' are >90% `method`.\n",
-                "3. **High Section Noise:** ~70% of unique section names appear only once due to section numbering (e.g. `1.1 Introduction`, `Section 2`), case variants (`METHODS` vs `Methods`), and journal-specific naming. A canonical mapping (e.g. into `introduction`, `method`, `results`, `discussion`, `background`, `other`, `missing`) will drastically improve generalization for the section-aware ablation study."
+                "### 6. Section Normalization Pipeline & Comparative Representations\n",
+                "Based on the noise patterns identified above, we map all raw section strings into seven canonical categories:\n",
+                "`introduction`, `method`, `result`, `discussion`, `result_discussion`, `other`, `missing`.\n",
+                "\n",
+                "We then generate two comparative input representations:\n",
+                "1. **Text-only:** `[string]` (raw citation sentence only)\n",
+                "2. **Section-aware:** `Section: [canonical_section]. Citation: [string]` (context-enhanced prefix conditioning)"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "# Process all splits\n",
+                "processed_dfs = {split: build_input_representations(df) for split, df in dfs.items()}\n",
+                "\n",
+                "# Display distribution of canonical sections\n",
+                "fig = plot_canonical_section_distribution(processed_dfs)\n",
+                "plt.show()\n",
+                "\n",
+                "# Display conditional probability P(Intent | Normalized Section)\n",
+                "fig = plot_canonical_section_contingency(processed_dfs[\"train\"])\n",
+                "plt.show()\n",
+                "\n",
+                "# Contingency table numbers\n",
+                "contingency = pd.crosstab(\n",
+                "    processed_dfs[\"train\"][\"section_clean\"],\n",
+                "    processed_dfs[\"train\"][\"label_name\"],\n",
+                "    normalize=\"index\"\n",
+                ") * 100\n",
+                "print(\"Conditional Probability P(Intent | Normalized Section) [%]:\")\n",
+                "display(contingency.round(2))"
+            ]
+        },
+        {
+            "cell_type": "markdown",
+            "metadata": {},
+            "source": [
+                "### 7. Concrete Examples of Generated Representations\n",
+                "Inspecting how the exact same citation text appears across the two comparative input formats:"
+            ]
+        },
+        {
+            "cell_type": "code",
+            "execution_count": None,
+            "metadata": {},
+            "outputs": [],
+            "source": [
+                "sample_preview = processed_dfs[\"train\"][[\"sectionName\", \"section_clean\", \"label_name\", \"text_only\", \"text_section_aware\"]].head(3)\n",
+                "for idx, row in sample_preview.iterrows():\n",
+                "    print(f\"\\n=== Instance #{idx + 1} (Ground Truth: {row['label_name']}) ===\")\n",
+                "    print(f\"Raw Section:    '{row['sectionName']}' -> Normalized: '{row['section_clean']}'\")\n",
+                "    print(f\"[Text-only]:     {row['text_only']}\")\n",
+                "    print(f\"[Section-aware]: {row['text_section_aware']}\")"
             ]
         }
     ],
