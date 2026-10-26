@@ -1,0 +1,4 @@
+split,total_samples,unique_citing_papers,unique_cited_papers,missing_string,missing_section,section_missing_pct
+train,8194,4664,4557,0,587,7.16
+validation,916,817,802,0,71,7.75
+test,1859,1845,1804,0,66,3.55
