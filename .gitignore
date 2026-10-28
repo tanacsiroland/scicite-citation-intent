@@ -239,3 +239,7 @@ checkpoints/
 data/raw/*.tar.gz
 outputs/figures/*.pdf
 
+
+# Model checkpoints and experiments
+experiments/
+

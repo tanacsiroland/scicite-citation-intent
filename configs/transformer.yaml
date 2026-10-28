@@ -1,27 +1,37 @@
-# Configuration for Transformer Fine-Tuning (DistilBERT / SciBERT)
+# Configuration for Transformer Fine-Tuning (DistilBERT / ModernBERT / SciBERT)
 seed: 42
 
 training:
   max_length: 512
-  batch_size: 32
+  per_device_train_batch_size: 32
+  per_device_eval_batch_size: 64
   learning_rate: 2.0e-5
   weight_decay: 0.01
-  num_train_epochs: 4
-  warmup_ratio: 0.1
-  bf16: true  # Native accelerated precision on RTX 5090 Blackwell
+  num_train_epochs: 10
+  warmup_steps: 100
+  bf16: true  # Native accelerated precision on NVIDIA RTX 5090 (Blackwell sm_120)
   gradient_accumulation_steps: 1
-  evaluation_strategy: "epoch"
+  eval_strategy: "epoch"
   save_strategy: "epoch"
-  metric_for_best_model: "macro_f1"
+  metric_for_best_model: "eval_macro_f1"
   load_best_model_at_end: true
+  save_total_limit: 1
 
 models:
   distilbert:
     name: "distilbert-base-uncased"
+    display_name: "DistilBERT"
+    learning_rate: 3.0e-5
+  modernbert:
+    name: "answerdotai/ModernBERT-base"
+    display_name: "ModernBERT"
+    learning_rate: 2.0e-5
   scibert:
     name: "allenai/scibert_scivocab_uncased"
+    display_name: "SciBERT"
+    learning_rate: 2.0e-5
 
 representations:
   modes:
     - "text_only"
-    - "section_aware"
+    - "text_section_aware"

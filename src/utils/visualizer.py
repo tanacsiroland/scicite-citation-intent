@@ -1,6 +1,6 @@
 """Visualization utilities for EDA and model evaluation."""
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
@@ -320,6 +320,158 @@ def plot_confusion_matrix(
     ax.set_title(title, fontsize=12, fontweight="bold", pad=12)
     ax.set_ylabel("True Intent Label", fontsize=10)
     ax.set_xlabel("Predicted Intent Label", fontsize=10)
+    plt.tight_layout()
+
+    if output_path:
+        fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    return fig
+
+
+def plot_training_curves(
+    histories: Dict[str, List[Dict[str, Any]]],
+    output_path: Optional[str] = None,
+) -> plt.Figure:
+    """Plot multi-epoch training curves structured as a 2x3 small multiples grid.
+
+    Columns: Model architectures (DistilBERT, ModernBERT, SciBERT).
+    Rows:
+      - Row 0: Validation Loss (shared y-axis, highlighting minimum loss / onset of overfitting).
+      - Row 1: Validation Macro-F1 (shared y-axis, highlighting peak epoch and exact metric).
+
+    Args:
+        histories: Mapping of run_name to list of log_history records.
+        output_path: Optional path to save figure.
+
+    Returns:
+        Matplotlib Figure object.
+    """
+    model_families = [
+        ("distilbert", "DistilBERT (66M)"),
+        ("modernbert", "ModernBERT (149M)"),
+        ("scibert", "SciBERT (110M)"),
+    ]
+
+    fig, axes = plt.subplots(2, 3, figsize=(16, 9), sharex=True)
+
+    color_text_only = "#1f77b4"      # Steel blue
+    color_section_aware = "#d62728"  # Crimson red
+
+    # First pass: determine global min/max for aligned y-limits
+    all_losses = []
+    all_f1s = []
+    for h in histories.values():
+        for log in h:
+            if "eval_loss" in log:
+                all_losses.append(log["eval_loss"])
+            if "eval_macro_f1" in log:
+                all_f1s.append(log["eval_macro_f1"])
+
+    loss_min = min(all_losses) * 0.9 if all_losses else 0.3
+    loss_max = max(all_losses) * 1.05 if all_losses else 1.4
+    f1_min = min(all_f1s) * 0.99 if all_f1s else 0.80
+    f1_max = max(all_f1s) * 1.01 if all_f1s else 0.86
+
+    for col_idx, (model_prefix, display_title) in enumerate(model_families):
+        ax_loss = axes[0, col_idx]
+        ax_f1 = axes[1, col_idx]
+
+        rep_configs = [
+            (f"{model_prefix}_text_only", "Text-only", color_text_only, "o", "-"),
+            (f"{model_prefix}_text_section_aware", "Section-aware", color_section_aware, "s", "--"),
+        ]
+
+        for run_key, rep_label, color, marker, linestyle in rep_configs:
+            history = histories.get(run_key, [])
+            epochs, losses, f1s = [], [], []
+
+            for log in history:
+                if "eval_macro_f1" in log and "epoch" in log:
+                    epochs.append(int(log["epoch"]))
+                    f1s.append(log["eval_macro_f1"])
+                    if "eval_loss" in log:
+                        losses.append(log["eval_loss"])
+
+            if not epochs:
+                continue
+
+            # Plot Loss (Row 0)
+            ax_loss.plot(
+                epochs,
+                losses,
+                marker=marker,
+                linestyle=linestyle,
+                color=color,
+                label=rep_label,
+                linewidth=2.2,
+                markersize=6,
+            )
+
+            # Annotate Minimum Loss
+            min_loss_val = min(losses)
+            best_loss_ep = epochs[losses.index(min_loss_val)]
+            ax_loss.scatter([best_loss_ep], [min_loss_val], color=color, s=110, zorder=5)
+            y_offset = -20 if rep_label == "Text-only" else 15
+            ax_loss.annotate(
+                f"Min: {min_loss_val:.3f}\n(Ep {best_loss_ep})",
+                (best_loss_ep, min_loss_val),
+                textcoords="offset points",
+                xytext=(0, y_offset),
+                ha="center",
+                fontsize=8,
+                fontweight="bold",
+                color=color,
+                bbox=dict(boxstyle="round,pad=0.2", facecolor="white", edgecolor=color, alpha=0.9, lw=0.8),
+            )
+
+            # Plot Macro-F1 (Row 1)
+            ax_f1.plot(
+                epochs,
+                f1s,
+                marker=marker,
+                linestyle=linestyle,
+                color=color,
+                label=rep_label,
+                linewidth=2.2,
+                markersize=6,
+            )
+
+            # Annotate Peak Macro-F1
+            peak_f1_val = max(f1s)
+            peak_f1_ep = epochs[f1s.index(peak_f1_val)]
+            ax_f1.scatter([peak_f1_ep], [peak_f1_val], color=color, s=140, marker="*", zorder=5)
+            y_offset_f1 = 15 if rep_label == "Section-aware" else -25
+            ax_f1.annotate(
+                f"Peak: {peak_f1_val:.4f}\n(Ep {peak_f1_ep})",
+                (peak_f1_ep, peak_f1_val),
+                textcoords="offset points",
+                xytext=(0, y_offset_f1),
+                ha="center",
+                fontsize=8,
+                fontweight="bold",
+                color=color,
+                bbox=dict(boxstyle="round,pad=0.2", facecolor="white", edgecolor=color, alpha=0.9, lw=0.8),
+            )
+
+        # Style Loss subplots (Row 0)
+        ax_loss.set_title(f"{display_title}\nValidation Loss", fontsize=11, fontweight="bold", pad=8)
+        ax_loss.set_ylim(loss_min, loss_max)
+        ax_loss.set_xticks(range(1, 11))
+        ax_loss.grid(True, linestyle="--", alpha=0.5)
+        if col_idx == 0:
+            ax_loss.set_ylabel("Validation Loss\n(Lower is better)", fontsize=10, fontweight="bold")
+        ax_loss.legend(loc="upper left", fontsize=8.5, framealpha=0.9)
+
+        # Style Macro-F1 subplots (Row 1)
+        ax_f1.set_title(f"{display_title}\nValidation Macro-F1", fontsize=11, fontweight="bold", pad=8)
+        ax_f1.set_ylim(f1_min, f1_max)
+        ax_f1.set_xticks(range(1, 11))
+        ax_f1.set_xlabel("Epoch", fontsize=10, fontweight="bold")
+        ax_f1.grid(True, linestyle="--", alpha=0.5)
+        if col_idx == 0:
+            ax_f1.set_ylabel("Validation Macro-F1\n(Higher is better)", fontsize=10, fontweight="bold")
+        ax_f1.legend(loc="lower right", fontsize=8.5, framealpha=0.9)
+
+    plt.suptitle("Multi-Epoch Training Trajectory by Model Architecture (10-Epoch Overfitting Analysis)", fontsize=13, fontweight="bold", y=0.995)
     plt.tight_layout()
 
     if output_path:
