@@ -229,7 +229,6 @@ CONTEXT.md
 .venv/
 venv/
 env/
-/data/
 outputs/checkpoints/
 outputs/models/
 checkpoints/

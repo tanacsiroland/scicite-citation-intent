@@ -1,3 +1,0 @@
-Representation,Accuracy,Macro P,Macro R,Macro F1,Micro P,Micro R,Micro F1,Weighted P,Weighted R,Weighted F1,Method F1,Background F1,Result F1,Best C,Class Weight
-Text-only,0.8354,0.8296,0.8054,0.8157,0.8354,0.8354,0.8354,0.8366,0.8354,0.834,0.8106,0.8643,0.7723,2.0,none
-Section-aware,0.8628,0.8458,0.8382,0.8405,0.8628,0.8628,0.8628,0.866,0.8628,0.8629,0.8672,0.8844,0.7698,2.0,none
