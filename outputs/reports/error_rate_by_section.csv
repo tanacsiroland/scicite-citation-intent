@@ -1,0 +1,8 @@
+Canonical Section,Count,Dataset Share (%),Error Rate - Baseline (Text-only) (%),Error Rate - Baseline (Section-aware) (%),Error Rate - DistilBERT (Section-aware) (%),Error Rate - ModernBERT (Section-aware) (%),Error Rate - SciBERT (Section-aware) (%)
+discussion,777,41.8,13.9,14.03,14.8,14.67,15.06
+method,412,22.16,18.69,7.04,8.25,5.34,9.71
+result,310,16.68,19.35,19.68,18.71,15.16,18.39
+other,118,6.35,16.95,17.8,16.95,14.41,16.95
+introduction,89,4.79,13.48,11.24,11.24,13.48,12.36
+result_discussion,77,4.14,11.69,10.39,15.58,11.69,12.99
+missing,76,4.09,26.32,22.37,23.68,21.05,23.68
