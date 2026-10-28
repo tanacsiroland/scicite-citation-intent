@@ -49,7 +49,8 @@ def normalize_section_name(raw_name: Optional[str]) -> str:
     if not s or s in ("nan", "none", "null", "unknown"):
         return "missing"
 
-    s = re.sub(r"^[0-9ivxlcdm]+[\.\s\:\-\)]+", "", s).strip()
+    # Strip structural prefixes like 'section', 'sec.', 'chapter', numbers, roman numerals, and punctuation
+    s = re.sub(r"^(?:section|sec\.?|chapter|part)?\s*[0-9ivxlcdm\.\-\:\)]+\s*", "", s, flags=re.IGNORECASE).strip()
     s = re.sub(r"^[^\w]+|[^\w]+$", "", s).strip()
     if not s:
         return "missing"

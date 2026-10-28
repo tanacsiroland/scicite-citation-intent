@@ -36,24 +36,22 @@ scicite-citation-intent/
 ├── citation_intent_classification.ipynb  # Interactive end-to-end master notebook
 ├── train_all.py                          # Unified CLI pipeline runner
 ├── README.md                             # Project overview and leaderboard
-├── requirements.txt                      # Dependencies
+├── requirements.txt                      # Clean minimal dependencies
 ├── src/                                  # Modular core library
 │   ├── __init__.py
 │   ├── data.py                           # Dataset loading, normalization & representations
 │   ├── models.py                         # Baseline & Transformer training routines
 │   └── utils.py                          # Metrics, seed & plotting utilities
 ├── outputs/
-│   ├── test_predictions.csv              # Test predictions across all models
-│   ├── figures/                          # 5 key publication-grade figures
+│   ├── figures/                          # 5 publication-grade figures
 │   │   ├── class_distribution.png
 │   │   ├── canonical_section_contingency.png
 │   │   ├── transformer_training_curves.png
 │   │   ├── confusion_matrices_comparison.png
 │   │   └── error_rate_by_section.png
-│   ├── reports/
-│   │   └── all_models_comparative_summary.csv # Master metrics summary table
-│   └── errors/
-│       └── qualitative_case_studies.csv       # 6 qualitative case studies
+│   ├── all_models_comparative_summary.csv # Master metrics summary table
+│   ├── qualitative_case_studies.csv       # 6 qualitative case studies
+│   └── test_predictions.csv              # Test predictions across all models
 └── data/
     ├── raw/scicite/                      # dev.jsonl, test.jsonl, train.jsonl
     └── processed/                        # train, validation, test (.parquet)
@@ -69,7 +67,7 @@ pip install -r requirements.txt
 ```
 
 ### 2. Interactive Master Notebook
-Open `citation_intent_classification.ipynb` in Jupyter Lab, Jupyter Notebook, or VS Code. The notebook is fully pre-executed with embedded figures and tables, and executes end-to-end in ~10 seconds.
+Open `citation_intent_classification.ipynb` in Jupyter Lab, Jupyter Notebook, or VS Code. The notebook is fully pre-executed with embedded figures and tables, and executes end-to-end in seconds.
 
 ### 3. Command-Line Pipeline Execution
 ```bash

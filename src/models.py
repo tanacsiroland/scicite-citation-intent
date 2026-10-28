@@ -30,13 +30,9 @@ def train_baseline(
     seed: int = 42,
     c_grid: Optional[List[float]] = None,
 ) -> Tuple[Pipeline, np.ndarray, Dict[str, Any]]:
-    """Train TF-IDF + Logistic Regression baseline with validation tuning."""
+    """Train TF-IDF + Logistic Regression baseline with fast validation tuning."""
     if c_grid is None:
         c_grid = [0.5, 1.0, 2.0, 5.0]
-
-    best_macro_f1 = -1.0
-    best_c = 1.0
-    best_cw = "balanced"
 
     tfidf_kwargs = {
         "max_features": 10000,
@@ -45,28 +41,38 @@ def train_baseline(
         "min_df": 2,
     }
 
-    # Quick tuning on validation set
+    # Vectorize once across splits (10x faster than re-vectorizing in grid search loop)
+    vec = TfidfVectorizer(**tfidf_kwargs)
+    X_train_vec = vec.fit_transform(train_df[text_column])
+    X_val_vec = vec.transform(val_df[text_column])
+    X_test_vec = vec.transform(test_df[text_column])
+
+    best_macro_f1 = -1.0
+    best_c = 1.0
+    best_cw = "balanced"
+
+    # Fast validation tuning over C and class_weight
     for cw in ["balanced", None]:
         for c_val in c_grid:
-            pipe = Pipeline([
-                ("tfidf", TfidfVectorizer(**tfidf_kwargs)),
-                ("clf", LogisticRegression(C=c_val, class_weight=cw, solver="lbfgs", max_iter=1000, random_state=seed)),
-            ])
-            pipe.fit(train_df[text_column], train_df["label"])
-            val_preds = pipe.predict(val_df[text_column])
+            clf = LogisticRegression(C=c_val, class_weight=cw, solver="lbfgs", max_iter=1000, random_state=seed)
+            clf.fit(X_train_vec, train_df["label"])
+            val_preds = clf.predict(X_val_vec)
             val_m = compute_classification_metrics(val_df["label"], val_preds)
             if val_m["macro_f1"] > best_macro_f1:
                 best_macro_f1 = val_m["macro_f1"]
                 best_c = c_val
                 best_cw = cw
 
-    # Final fit on train with best params
+    # Final optimal model wrapped in Pipeline
+    optimal_clf = LogisticRegression(C=best_c, class_weight=best_cw, solver="lbfgs", max_iter=1000, random_state=seed)
+    optimal_clf.fit(X_train_vec, train_df["label"])
+    test_preds = optimal_clf.predict(X_test_vec)
+
     optimal_pipeline = Pipeline([
-        ("tfidf", TfidfVectorizer(**tfidf_kwargs)),
-        ("clf", LogisticRegression(C=best_c, class_weight=best_cw, solver="lbfgs", max_iter=1000, random_state=seed)),
+        ("tfidf", vec),
+        ("clf", optimal_clf),
     ])
-    optimal_pipeline.fit(train_df[text_column], train_df["label"])
-    test_preds = optimal_pipeline.predict(test_df[text_column])
+
     metrics = compute_classification_metrics(test_df["label"], test_preds)
     metrics["best_params"] = {"C": best_c, "class_weight": best_cw}
 
@@ -86,7 +92,7 @@ def train_transformer(
     learning_rate: float = 2e-5,
     max_length: int = 512,
 ) -> Tuple[Any, np.ndarray, Dict[str, Any]]:
-    """Fine-tune a pretrained Hugging Face Transformer and evaluate on test set."""
+    """Fine-tune a pretrained Hugging Face Transformer with hardware-adaptive precision."""
     output_dir.mkdir(parents=True, exist_ok=True)
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForSequenceClassification.from_pretrained(
@@ -118,6 +124,11 @@ def train_transformer(
         res = compute_classification_metrics(eval_pred.label_ids, preds)
         return {"eval_accuracy": res["accuracy"], "eval_macro_f1": res["macro_f1"]}
 
+    # Intelligent hardware-adaptive precision fallback (RTX 30/40/50 -> bf16, T4/V100 -> fp16, CPU -> fp32)
+    is_cuda = torch.cuda.is_available()
+    use_bf16 = is_cuda and torch.cuda.is_bf16_supported()
+    use_fp16 = is_cuda and not use_bf16
+
     args = TrainingArguments(
         output_dir=str(output_dir),
         eval_strategy="epoch",
@@ -128,7 +139,8 @@ def train_transformer(
         num_train_epochs=num_epochs,
         weight_decay=0.01,
         warmup_steps=100,
-        bf16=torch.cuda.is_available(),
+        bf16=use_bf16,
+        fp16=use_fp16,
         load_best_model_at_end=True,
         metric_for_best_model="eval_macro_f1",
         greater_is_better=True,
