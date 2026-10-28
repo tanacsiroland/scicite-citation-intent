@@ -270,3 +270,58 @@ def plot_canonical_section_contingency(
     if output_path:
         fig.savefig(output_path, dpi=300, bbox_inches="tight")
     return fig
+
+
+def plot_confusion_matrix(
+    cm: np.ndarray | List[List[int]],
+    target_names: List[str],
+    title: str = "Confusion Matrix",
+    output_path: Optional[str] = None,
+    normalize: bool = True,
+) -> plt.Figure:
+    """Plot confusion matrix with count and row-normalized percentages.
+
+    Args:
+        cm: Confusion matrix array or list.
+        target_names: Class labels in order.
+        title: Figure title.
+        output_path: Optional path to save figure.
+        normalize: Whether to normalize by true labels (row-wise).
+
+    Returns:
+        Matplotlib Figure object.
+    """
+    cm_arr = np.array(cm)
+    if normalize:
+        cm_norm = cm_arr.astype("float") / cm_arr.sum(axis=1)[:, np.newaxis]
+        annot = np.empty_like(cm_arr, dtype=object)
+        for i in range(cm_arr.shape[0]):
+            for j in range(cm_arr.shape[1]):
+                annot[i, j] = f"{cm_arr[i, j]:,}\n({cm_norm[i, j]*100:.1f}%)"
+        data_to_plot = cm_norm
+        fmt = ""
+    else:
+        data_to_plot = cm_arr
+        annot = True
+        fmt = "d"
+
+    fig, ax = plt.subplots(figsize=(6.5, 5))
+    sns.heatmap(
+        data_to_plot,
+        annot=annot,
+        fmt=fmt,
+        cmap="Blues",
+        xticklabels=[t.capitalize() for t in target_names],
+        yticklabels=[t.capitalize() for t in target_names],
+        cbar=True,
+        ax=ax,
+    )
+
+    ax.set_title(title, fontsize=12, fontweight="bold", pad=12)
+    ax.set_ylabel("True Intent Label", fontsize=10)
+    ax.set_xlabel("Predicted Intent Label", fontsize=10)
+    plt.tight_layout()
+
+    if output_path:
+        fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    return fig

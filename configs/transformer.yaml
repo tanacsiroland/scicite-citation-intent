@@ -21,7 +21,7 @@ models:
   scibert:
     name: "allenai/scibert_scivocab_uncased"
 
-ablation:
+representations:
   modes:
     - "text_only"
     - "section_aware"

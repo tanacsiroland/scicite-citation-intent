@@ -15,7 +15,7 @@ model:
   max_iter: 1000
   class_weight: "balanced"
 
-ablation:
+representations:
   modes:
     - "text_only"
     - "section_aware"
