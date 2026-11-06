@@ -33,47 +33,79 @@ This project evaluates:
 
 ```text
 scicite-citation-intent/
-├── citation_intent_classification.ipynb  # Interactive end-to-end master notebook
-├── train_all.py                          # Unified CLI pipeline runner
-├── README.md                             # Project overview and leaderboard
-├── requirements.txt                      # Clean minimal dependencies
-├── src/                                  # Modular core library
+├── 01_results_and_evaluation.ipynb   # Executive presentation, benchmark leaderboard & error analysis
+├── 02_pipeline_training.ipynb        # Complete end-to-end training pipeline & model saving
+├── 03_interactive_inference.ipynb    # Zero-setup interactive demo & test playground for evaluators
+├── README.md                         # Project overview, benchmark leaderboard & quickstart
+├── requirements.txt                  # Minimal clean dependencies
+├── src/                              # Modular core library
 │   ├── __init__.py
-│   ├── data.py                           # Dataset loading, normalization & representations
-│   ├── models.py                         # Baseline & Transformer training routines
-│   └── utils.py                          # Metrics, seed & plotting utilities
+│   ├── data.py                       # Dataset loading, normalization & representations
+│   ├── models.py                     # Baseline & Transformer training routines + HF publishing
+│   └── utils.py                      # Metrics, live plotting & inference visualizer
 ├── outputs/
-│   ├── figures/                          # 5 publication-grade figures
+│   ├── figures/                      # 5 publication-grade figures
 │   │   ├── class_distribution.png
 │   │   ├── canonical_section_contingency.png
 │   │   ├── transformer_training_curves.png
 │   │   ├── confusion_matrices_comparison.png
 │   │   └── error_rate_by_section.png
+│   ├── models/                       # Locally saved model artifacts & baseline pipeline
+│   │   ├── baseline_tfidf.pkl
+│   │   ├── scicite-modernbert-section-aware/
+│   │   ├── scicite-modernbert-text-only/
+│   │   ├── scicite-scibert-section-aware/
+│   │   ├── scicite-scibert-text-only/
+│   │   ├── scicite-distilbert-section-aware/
+│   │   └── scicite-distilbert-text-only/
 │   ├── all_models_comparative_summary.csv # Master metrics summary table
 │   ├── qualitative_case_studies.csv       # 6 qualitative case studies
 │   └── test_predictions.csv              # Test predictions across all models
 └── data/
-    ├── raw/scicite/                      # dev.jsonl, test.jsonl, train.jsonl
-    └── processed/                        # train, validation, test (.parquet)
+    ├── raw/scicite/                  # dev.jsonl, test.jsonl, train.jsonl
+    └── processed/                    # train, validation, test (.parquet)
 ```
 
 ---
 
-## Quickstart & Reproducibility
+## Hosted Models on Hugging Face Hub (Public)
+
+All **6 fine-tuned Transformer configurations** have been published to the public Hugging Face Hub under the [`Tancsi`](https://huggingface.co/Tancsi) profile for zero-credential access:
+
+| Model Architecture | Input Mode | Test Accuracy | Macro F1 | Hugging Face Repository |
+| :--- | :--- | :---: | :---: | :--- |
+| **ModernBERT** | **Section-aware** | **87.25%** | **0.8550** | [`Tancsi/scicite-modernbert-section-aware`](https://huggingface.co/Tancsi/scicite-modernbert-section-aware) *(Overall Champion)* |
+| **SciBERT** | **Text-only** | **86.18%** | **0.8503** | [`Tancsi/scicite-scibert-text-only`](https://huggingface.co/Tancsi/scicite-scibert-text-only) *(Best on Result Class: 0.8171 F1)* |
+| **DistilBERT** | **Section-aware** | **85.64%** | **0.8433** | [`Tancsi/scicite-distilbert-section-aware`](https://huggingface.co/Tancsi/scicite-distilbert-section-aware) |
+| **ModernBERT** | **Text-only** | **85.64%** | **0.8404** | [`Tancsi/scicite-modernbert-text-only`](https://huggingface.co/Tancsi/scicite-modernbert-text-only) |
+| **SciBERT** | **Section-aware** | **85.31%** | **0.8392** | [`Tancsi/scicite-scibert-section-aware`](https://huggingface.co/Tancsi/scicite-scibert-section-aware) |
+| **DistilBERT** | **Text-only** | **85.48%** | **0.8397** | [`Tancsi/scicite-distilbert-text-only`](https://huggingface.co/Tancsi/scicite-distilbert-text-only) |
+
+Additionally, the fitted classical **TF-IDF + Logistic Regression pipeline** is saved locally at `outputs/models/baseline_tfidf.pkl`.
+
+---
+
+## Quickstart & Evaluation Guide
 
 ### 1. Environment Setup
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Interactive Master Notebook
-Open `citation_intent_classification.ipynb` in Jupyter Lab, Jupyter Notebook, or VS Code. The notebook is fully pre-executed with embedded figures and tables, and executes end-to-end in seconds.
+### 2. Notebook Guide
 
-### 3. Command-Line Pipeline Execution
-```bash
-# Run baseline evaluation on preprocessed splits:
-python train_all.py
+| Notebook | Purpose | Runtime | Prerequisites |
+| :--- | :--- | :---: | :--- |
+| **`01_results_and_evaluation.ipynb`** | **Executive Defense**: Inspect pre-computed leaderboard, metrics, figures, training dynamics, and linguistic error case studies. | ~5 sec | None |
+| **`02_pipeline_training.ipynb`** | **Full Reproducibility**: Run the entire pipeline from scratch (data loading, live dynamic plotting, baseline tuning, transformer training, local model saving, and optional HF publishing). | ~2 min (GPU) | Local GPU / Colab |
+| **`03_interactive_inference.ipynb`** | **Lecturer Playground**: Interactive cell to input custom academic sentences and test predictions with probability bar charts. | ~10 sec | None (pulls from public HF Hub) |
 
-# Run full Transformer fine-tuning (GPU recommended):
-python train_all.py --train-transformers
+### 3. Direct Python Inference (2 Lines of Code)
+```python
+from transformers import pipeline
+
+# Load directly from public Hugging Face repository (no token or login required)
+classifier = pipeline("text-classification", model="Tancsi/scicite-modernbert-section-aware", top_k=None)
+result = classifier("Section: method. Citation: We trained the model using AdamW with learning rate 2e-5.")
+print(result)
 ```

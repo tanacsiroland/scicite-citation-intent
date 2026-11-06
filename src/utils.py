@@ -2,6 +2,7 @@
 
 import os
 import random
+from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 import pandas as pd
@@ -10,6 +11,144 @@ import seaborn as sns
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 
 from src.data import ID2LABEL, CLASS_NAMES
+
+
+def display_saved_figure(
+    image_path: str | os.PathLike,
+    title: Optional[str] = None,
+    figsize: Tuple[float, float] = (10, 5),
+) -> None:
+    """Load and display an image file from disk cleanly in Jupyter/Matplotlib."""
+    import matplotlib.image as mpimg
+    p = Path(image_path)
+    if not p.is_file():
+        print(f"Warning: Figure not found at {p}")
+        return
+    plt.figure(figsize=figsize)
+    plt.imshow(mpimg.imread(str(p)))
+    plt.axis("off")
+    if title:
+        plt.title(title, fontsize=11, fontweight="bold", pad=8)
+    plt.show()
+
+
+def plot_class_distribution(
+    dfs: Dict[str, pd.DataFrame],
+    id2label: Optional[Dict[int, str]] = None,
+    output_path: Optional[str] = None,
+) -> plt.Figure:
+    """Plot label percentage distribution across train, validation, and test splits."""
+    if id2label is None:
+        id2label = ID2LABEL
+
+    records = []
+    for split_name, df in dfs.items():
+        counts = df["label"].map(id2label).value_counts(normalize=True) * 100
+        for label_name, pct in counts.items():
+            records.append({
+                "Split": split_name.capitalize(),
+                "Citation Intent": label_name.capitalize(),
+                "Percentage (%)": round(pct, 2),
+                "Count": int((df["label"].map(id2label) == label_name).sum()),
+            })
+
+    plot_df = pd.DataFrame(records)
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    palette = sns.color_palette("muted", n_colors=3)
+    sns.barplot(
+        data=plot_df,
+        x="Citation Intent",
+        y="Percentage (%)",
+        hue="Split",
+        palette=palette,
+        ax=ax,
+    )
+
+    for p in ax.patches:
+        height = p.get_height()
+        if height > 0:
+            ax.annotate(
+                f"{height:.1f}%",
+                (p.get_x() + p.get_width() / 2.0, height),
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                xytext=(0, 3),
+                textcoords="offset points",
+            )
+
+    ax.set_title("Citation Intent Class Distribution across Dataset Splits", fontsize=12, fontweight="bold", pad=12)
+    ax.set_ylabel("Percentage (%)", fontsize=10)
+    ax.set_xlabel("Citation Intent", fontsize=10)
+    ax.set_ylim(0, max(plot_df["Percentage (%)"]) * 1.15)
+    plt.tight_layout()
+
+    if output_path:
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    return fig
+
+
+def plot_canonical_section_contingency(
+    df: pd.DataFrame,
+    output_path: Optional[str] = None,
+) -> plt.Figure:
+    """Plot conditional probability P(Intent | Normalized Section) heatmap."""
+    contingency = pd.crosstab(df["section_clean"], df["label_name"], normalize="index") * 100
+    cols = [c for c in ["background", "method", "result"] if c in contingency.columns]
+    contingency = contingency[cols]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    sns.heatmap(
+        contingency,
+        annot=True,
+        fmt=".1f",
+        cmap="YlGnBu",
+        cbar_kws={"label": "Conditional Probability (%)"},
+        ax=ax,
+    )
+    ax.set_title("Intent Distribution by Normalized Section P(Intent | Section)", fontsize=12, fontweight="bold", pad=12)
+    ax.set_ylabel("Canonical Section Category", fontsize=10)
+    ax.set_xlabel("Citation Intent", fontsize=10)
+    plt.tight_layout()
+
+    if output_path:
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    return fig
+
+
+def plot_prediction_probabilities(
+    probabilities: Dict[str, float],
+    predicted_label: str,
+    title: str = "Citation Intent Prediction",
+) -> plt.Figure:
+    """Horizontal bar chart showing model confidence across the 3 citation classes."""
+    classes = list(probabilities.keys())
+    scores = [probabilities[c] for c in classes]
+
+    colors = ["#2b5c8f" if c.lower() == predicted_label.lower() else "#b0c4de" for c in classes]
+
+    fig, ax = plt.subplots(figsize=(7, 2.6))
+    bars = ax.barh(classes, scores, color=colors, height=0.55)
+    ax.set_xlim(0, 1.0)
+    ax.set_xlabel("Softmax Probability", fontsize=9, fontweight="bold")
+    ax.set_title(title, fontsize=11, fontweight="bold", pad=10)
+    ax.grid(axis="x", linestyle="--", alpha=0.5)
+
+    for bar, score in zip(bars, scores):
+        ax.text(
+            score + 0.02,
+            bar.get_y() + bar.get_height() / 2,
+            f"{score * 100:.1f}%",
+            va="center",
+            ha="left",
+            fontsize=9,
+            fontweight="bold" if score == max(scores) else "normal",
+        )
+
+    plt.tight_layout()
+    return fig
 
 
 def set_seed(seed: int = 42) -> None:

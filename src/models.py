@@ -18,7 +18,7 @@ from transformers import (
     EvalPrediction,
 )
 
-from src.data import ID2LABEL, LABEL2ID, CLASS_NAMES
+from src.data import ID2LABEL, LABEL2ID
 from src.utils import compute_classification_metrics
 
 
@@ -50,6 +50,7 @@ def train_baseline(
     best_macro_f1 = -1.0
     best_c = 1.0
     best_cw = "balanced"
+    best_clf = None
 
     # Fast validation tuning over C and class_weight
     for cw in ["balanced", None]:
@@ -62,17 +63,15 @@ def train_baseline(
                 best_macro_f1 = val_m["macro_f1"]
                 best_c = c_val
                 best_cw = cw
+                best_clf = clf
 
     # Final optimal model wrapped in Pipeline
-    optimal_clf = LogisticRegression(C=best_c, class_weight=best_cw, solver="lbfgs", max_iter=1000, random_state=seed)
-    optimal_clf.fit(X_train_vec, train_df["label"])
-    test_preds = optimal_clf.predict(X_test_vec)
-
     optimal_pipeline = Pipeline([
         ("tfidf", vec),
-        ("clf", optimal_clf),
+        ("clf", best_clf),
     ])
 
+    test_preds = best_clf.predict(X_test_vec)
     metrics = compute_classification_metrics(test_df["label"], test_preds)
     metrics["best_params"] = {"C": best_c, "class_weight": best_cw}
 
@@ -164,4 +163,42 @@ def train_transformer(
     test_preds = np.argmax(pred_output.predictions, axis=-1)
     metrics = compute_classification_metrics(test_df["label"], test_preds)
 
+    trainer.tokenizer = tokenizer
     return trainer, test_preds, metrics
+
+
+def save_transformer_model(trainer: Trainer, tokenizer: AutoTokenizer, output_dir: Path | str) -> Path:
+    """Save the fine-tuned Transformer model, tokenizer, and config to a local directory."""
+    target_path = Path(output_dir)
+    target_path.mkdir(parents=True, exist_ok=True)
+    trainer.save_model(str(target_path))
+    tokenizer.save_pretrained(str(target_path))
+    return target_path
+
+
+def save_baseline_pipeline(pipeline: Pipeline, output_path: Path | str) -> Path:
+    """Save a fitted baseline pipeline to disk using joblib or pickle."""
+    target_path = Path(output_path)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    import pickle
+    with open(target_path, "wb") as f:
+        pickle.dump(pipeline, f)
+    return target_path
+
+
+def push_model_to_hub(
+    model_dir: Path | str,
+    repo_id: str,
+    token: Optional[str] = None,
+    private: bool = False,
+) -> str:
+    """Upload fine-tuned model and tokenizer to Hugging Face Hub as a public/private model."""
+    from huggingface_hub import HfApi
+    api = HfApi(token=token)
+    api.create_repo(repo_id=repo_id, repo_type="model", private=private, exist_ok=True)
+    api.upload_folder(
+        folder_path=str(model_dir),
+        repo_id=repo_id,
+        repo_type="model",
+    )
+    return f"https://huggingface.co/{repo_id}"

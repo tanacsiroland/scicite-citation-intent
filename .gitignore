@@ -224,6 +224,7 @@ CONTEXT.md
 .antigravity/
 .antigravityrules
 .cursorrules
+.vscode/
 
 # Virtual Environments & Data
 .venv/
@@ -241,4 +242,6 @@ outputs/figures/*.pdf
 
 # Model checkpoints and experiments
 experiments/
+
+.env
 

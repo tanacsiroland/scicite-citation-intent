@@ -1,6 +1,5 @@
 """Data loading, cleaning, and representation pipeline for SciCite."""
 
-import os
 import re
 import json
 import urllib.request
@@ -96,7 +95,10 @@ def ensure_raw_scicite_data(raw_dir: Path) -> Dict[str, Path]:
         with tarfile.open(tar_path, "r:gz") as tar:
             for member in tar.getmembers():
                 if member.name in ("scicite/train.jsonl", "scicite/dev.jsonl", "scicite/test.jsonl"):
-                    tar.extract(member, path=raw_dir)
+                    extract_kwargs = {"path": raw_dir}
+                    if hasattr(tarfile, "data_filter"):
+                        extract_kwargs["filter"] = "data"
+                    tar.extract(member, **extract_kwargs)
     return splits
 
 
@@ -118,7 +120,7 @@ def load_split_dataframe(filepath: Path) -> pd.DataFrame:
                 continue
             rows.append({
                 "string": str(d.get("string", "")),
-                "sectionName": str(d.get("sectionName", "") or ""),
+                "sectionName": str(d.get("sectionName") or ""),
                 "label": LABEL2ID[label_str],
                 "label_name": label_str,
                 "citingPaperId": str(d.get("citingPaperId", "")),
